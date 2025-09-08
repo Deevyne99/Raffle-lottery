@@ -43,16 +43,13 @@ contract Raffle is VRFConsumerBaseV2Plus {
     error Raffle_SendMoreEthToEnterRaffle();
     error Raffle_TransferToWinnerFailed();
     error Raffle__RaffleNotOpen();
-    error Raffle__UpkeepNotNeeded(
-        uint256 currentBalance,
-        uint256 numPlayers,
-        uint256 raffleState
-    );
+    error Raffle__UpkeepNotNeeded(uint256 currentBalance, uint256 numPlayers, uint256 raffleState);
 
     //@dev This is a type declaration
     enum RaffleState {
         OPEN, //We  can also use 0 to access this
         CALCULATING //We can also use 1 to access this
+
     }
 
     //End of Errors
@@ -119,28 +116,25 @@ contract Raffle is VRFConsumerBaseV2Plus {
      * 4. There are players registered.
      * 5. Implicitly, your subscription is funded with LINK.
      */
-    function checkUpkeep(
-        bytes memory /* checkData */
-    ) public view returns (bool upkeepNeeded, bytes memory /* performData */) {
+    function checkUpkeep(bytes memory /* checkData */ )
+        public
+        view
+        returns (bool upkeepNeeded, bytes memory /* performData */ )
+    {
         bool isOpen = RaffleState.OPEN == s_raffleState;
-        bool timeHasPassed = ((block.timestamp - s_lastTimestamp) >=
-            i_interval);
+        bool timeHasPassed = ((block.timestamp - s_lastTimestamp) >= i_interval);
         bool hasPlayers = s_players.length > 0;
         bool hasBalance = address(this).balance > 0;
         upkeepNeeded = (timeHasPassed && isOpen && hasBalance && hasPlayers);
         return (upkeepNeeded, "0x0");
     }
 
-    function performUpkeep(bytes calldata /* performData */) external {
+    function performUpkeep(bytes calldata /* performData */ ) external {
         // Logic to pick a winner
         // This could involve random number generation and selecting a winner from participants
-        (bool upkeepNeeded, ) = checkUpkeep("");
+        (bool upkeepNeeded,) = checkUpkeep("");
         if (!upkeepNeeded) {
-            revert Raffle__UpkeepNotNeeded(
-                address(this).balance,
-                s_players.length,
-                uint256(s_raffleState)
-            );
+            revert Raffle__UpkeepNotNeeded(address(this).balance, s_players.length, uint256(s_raffleState));
         }
 
         s_raffleState = RaffleState.CALCULATING;
@@ -159,26 +153,20 @@ contract Raffle is VRFConsumerBaseV2Plus {
         //         )
         //     })
         // );
-        VRFV2PlusClient.RandomWordsRequest memory request = VRFV2PlusClient
-            .RandomWordsRequest({
-                keyHash: i_keyHash,
-                subId: i_subscriptionId,
-                requestConfirmations: REQUEST_CONFIRMATION,
-                callbackGasLimit: i_callbackGasLimit,
-                numWords: NUMBER_OF_WORDS,
-                extraArgs: VRFV2PlusClient._argsToBytes(
-                    VRFV2PlusClient.ExtraArgsV1({nativePayment: true})
-                )
-            });
+        VRFV2PlusClient.RandomWordsRequest memory request = VRFV2PlusClient.RandomWordsRequest({
+            keyHash: i_keyHash,
+            subId: i_subscriptionId,
+            requestConfirmations: REQUEST_CONFIRMATION,
+            callbackGasLimit: i_callbackGasLimit,
+            numWords: NUMBER_OF_WORDS,
+            extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true}))
+        });
         uint256 requestId = s_vrfCoordinator.requestRandomWords(request);
         emit RequestedRaffleWinner(requestId);
     }
 
     //CEI Pattern
-    function fulfillRandomWords(
-        uint256 /*requestId*/,
-        uint256[] calldata randomWords
-    ) internal virtual override {
+    function fulfillRandomWords(uint256, /*requestId*/ uint256[] calldata randomWords) internal virtual override {
         //C stands for checks, we do not have any checks in this function
         //requires and conditionals
 
@@ -197,7 +185,7 @@ contract Raffle is VRFConsumerBaseV2Plus {
         emit WinnerPicked(s_recentWinner);
 
         //I stands for Interaction, Where we interact with external functions
-        (bool success, ) = recentWinner.call{value: address(this).balance}("");
+        (bool success,) = recentWinner.call{value: address(this).balance}("");
         if (!success) {
             revert Raffle_TransferToWinnerFailed();
         }
